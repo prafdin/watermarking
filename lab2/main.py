@@ -10,7 +10,12 @@ import skimage as si
 from matplotlib import pyplot as plt
 from skimage.io import imread, imshow, imsave
 
-seed = 42
+#### CONSTANTS ###
+SEED = 42
+ROUND = True
+CLIP = True
+##################
+
 ### VAR 22 CONSTANTS ###
 area = 1/4
 DECOMPOSITION_LEVELS = 3
@@ -76,12 +81,26 @@ def inject_omega_to_container(omega, container_components, alpha, component_numb
     components_copy[component_number] = inject_omega(component_for_inject, omega, alpha)
     return components_copy
 
+def compile_Cw(components):
+    Cw = idwt2_wrapper(components)
+
+    if ROUND:
+        Cw = Cw.round()
+
+    if CLIP:
+        Cw = np.clip(Cw, 0, 255)
+
+    if ROUND and CLIP:
+        Cw = Cw.astype(np.uint8)
+
+    return Cw
+
 def main():
     C = imread("bridge.tif")
 
     # Task 1
     n = int(area * (C.shape[0] // (2 ** DECOMPOSITION_LEVELS)) * (C.shape[1] // (2 ** DECOMPOSITION_LEVELS)))
-    omega = np.random.default_rng(seed=seed).random(n)
+    omega = np.random.default_rng(seed=SEED).random(n)
 
     # Task 2
     components = dwt2_wrapper(C, DECOMPOSITION_LEVELS)
@@ -92,7 +111,7 @@ def main():
     components_copy = inject_omega_to_container(omega, components, alpha, COMPONENT_NUM_FOR_INJECT)
 
     # Task 4
-    Cw = np.clip(idwt2_wrapper(components_copy), 0, 255)  # .round(0).astype(np.uint8) ???
+    Cw = compile_Cw(components_copy)
     imsave("Cw.tif", Cw)
 
     # Task 5
@@ -112,10 +131,10 @@ def main():
     best_psnr = 0
     best_alpha = 0
     while prev_max_ro <= ro:
-        alpha += 0.05
+        alpha += 0.25
 
         components_copy = inject_omega_to_container(omega, components, alpha, COMPONENT_NUM_FOR_INJECT)
-        Cw = np.clip(idwt2_wrapper(components_copy), 0, 255).astype(np.uint8)
+        Cw = compile_Cw(components_copy)
         components_w = dwt2_wrapper(Cw, DECOMPOSITION_LEVELS)
 
         new_omega = rate_omega(components_w[COMPONENT_NUM_FOR_INJECT], components[COMPONENT_NUM_FOR_INJECT], alpha)[:n]
@@ -138,8 +157,8 @@ def main():
     results = []
     for i in range(0, 4):  # LL - 0, LH - 1, HL - 2, HH - 3
         components_copy = inject_omega_to_container(omega, components, best_alpha, COMPONENT_NUM_FOR_INJECT)
-        Cw = np.clip(idwt2_wrapper(components_copy), 0, 255)
-        imsave(f"Cw_{i}.tif", Cw.astype(np.uint8))
+        Cw = compile_Cw(components_copy)
+        imsave(f"Cw_{i}.tif", Cw)
         Cw = imread(f"Cw_{i}.tif")
         components_w = dwt2_wrapper(Cw, DECOMPOSITION_LEVELS)
 
